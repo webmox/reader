@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SpeedRead">
+  <meta name="theme-color" content="#08080a">
+  <title>SpeedRead — RSVP Reader</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/shelf.css">
+  <link rel="stylesheet" href="css/reader.css">
+  <link rel="stylesheet" href="css/stats.css">
+  <link rel="stylesheet" href="css/settings.css">
+
+  <!-- JSZip for epub parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- Screen 1: Shelf -->
+    <div class="screen active" id="shelfScreen">
+      <div class="screen-header">
+        <h1>Книжная <span class="accent">полка</span></h1>
+      </div>
+      <div class="shelf-stats">
+        <div class="shelf-stat">
+          <div class="shelf-stat-value shelf-stat-books">0</div>
+          <div class="shelf-stat-label">Книг</div>
+        </div>
+        <div class="shelf-stat">
+          <div class="shelf-stat-value shelf-stat-words">0</div>
+          <div class="shelf-stat-label">Слов</div>
+        </div>
+        <div class="shelf-stat">
+          <div class="shelf-stat-value shelf-stat-reading">0</div>
+          <div class="shelf-stat-label">Читаю</div>
+        </div>
+      </div>
+      <div class="screen-scroll">
+        <button class="add-book-btn">📂 Загрузить книгу</button>
+        <input type="file" class="book-file-input" multiple accept=".txt,.epub,.fb2">
+        <div class="shelf-list"></div>
+      </div>
+    </div>
+
+    <!-- Screen 2: Reader -->
+    <div class="screen" id="readerScreen">
+      <div class="reader-header">
+        <button class="icon-btn back-btn">←</button>
+        <span class="reader-title">SpeedRead</span>
+        <span class="wpm-display">300 wpm</span>
+      </div>
+
+      <div class="no-book-msg">
+        <span class="no-book-msg-icon">👁</span>
+        <span>Выбери книгу на полке</span>
+      </div>
+
+      <div class="reader-content" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="focus-zone">
+          <div class="word-container">
+            <div class="orp-guide"></div>
+            <div class="current-word"></div>
+          </div>
+          <div class="pause-hint">ПАУЗА · нажми для продолжения</div>
+          <div class="context-line"></div>
+        </div>
+
+        <div class="reader-controls">
+          <div class="reader-progress">
+            <div class="reader-progress-fill" style="width:0%"></div>
+          </div>
+          <div class="progress-info">
+            <span class="progress-position">0 / 0</span>
+            <span class="progress-minutes">~0 мин</span>
+          </div>
+          <div class="main-controls">
+            <button class="icon-btn jump-prev-sentence" title="Предыдущее предложение">⏮</button>
+            <button class="icon-btn jump-prev" title="−10 слов">↶</button>
+            <button class="play-btn">▶</button>
+            <button class="icon-btn jump-next" title="+10 слов">↷</button>
+            <button class="icon-btn jump-next-sentence" title="Следующее предложение">⏭</button>
+          </div>
+          <div class="speed-controls">
+            <button class="speed-btn speed-down">−50</button>
+            <span class="speed-current">300 wpm</span>
+            <button class="speed-btn speed-up">+50</button>
+          </div>
+          <div class="keyboard-hints">
+            <span><kbd>Space</kbd> Play/Pause</span>
+            <span><kbd>←</kbd><kbd>→</kbd> ±10 слов</span>
+            <span><kbd>↑</kbd><kbd>↓</kbd> ±50 WPM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 3: Stats -->
+    <div class="screen" id="statsScreen">
+      <div class="screen-header">
+        <h1>Стати<span class="accent">стика</span></h1>
+      </div>
+      <div class="stats-hero">
+        <div class="hero-card">
+          <div class="hero-card-value accent stat-total-words">0</div>
+          <div class="hero-card-label">Слов прочитано</div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-card-value success stat-total-minutes">0</div>
+          <div class="hero-card-label">Минут чтения</div>
+        </div>
+        <div class="hero-card">
+          <div class="hero-card-value warning stat-avg-wpm">0</div>
+          <div class="hero-card-label">Средний WPM</div>
+        </div>
+      </div>
+      <div class="screen-scroll">
+        <div class="streak-bar">
+          <div class="streak-title">🔥 Серия: <strong class="streak-count">0</strong> дней</div>
+          <div class="streak-days"></div>
+        </div>
+        <div class="history-chart">
+          <div class="chart-title">Слов за день (14 дней)</div>
+          <div class="chart-bars"></div>
+          <div class="chart-labels"></div>
+        </div>
+        <div class="section-label">По книгам</div>
+        <div class="book-stats-list"></div>
+      </div>
+    </div>
+
+    <!-- Screen 4: Settings -->
+    <div class="screen" id="settingsScreen">
+      <div class="screen-header">
+        <h1>Настрой<span class="accent">ки</span></h1>
+      </div>
+      <div class="screen-scroll">
+        <div class="section-label">Тема</div>
+        <div class="settings-section">
+          <div class="toggle active" data-toggle="theme-toggle">
+            <div class="toggle-label">
+              <span>Тёмная тема</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+        </div>
+
+        <div class="section-label">Отображение</div>
+        <div class="settings-section">
+          <div class="stepper" data-stepper="font-stepper">
+            <span class="stepper-label">Размер шрифта</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">48</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
+          </div>
+          <div class="toggle active" data-toggle="context-toggle">
+            <div class="toggle-label">
+              <span>Контекстная строка</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+          <div class="toggle active" data-toggle="orp-toggle">
+            <div class="toggle-label">
+              <span>ORP-маркер</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+        </div>
+
+        <div class="section-label">Скорость по умолчанию</div>
+        <div class="settings-section">
+          <div class="stepper" data-stepper="wpm-stepper">
+            <span class="stepper-label">WPM по умолчанию</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">300</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Паузы на пунктуации</div>
+        <div class="settings-section">
+          <div class="toggle active" data-toggle="comma-toggle">
+            <div class="toggle-label">
+              <span>Запятые</span>
+              <span>×1.5 для , ; : —</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+          <div class="toggle active" data-toggle="period-toggle">
+            <div class="toggle-label">
+              <span>Точки</span>
+              <span>×2.5 для . ! ? …</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+        </div>
+
+        <button class="reset-btn">Сбросить все данные</button>
+        <div class="app-version">SpeedRead v2.0</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Загрузка...</div>
+  </div>
+
+  <!-- Confirm dialog -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-dialog">
+      <h3 class="confirm-title">Подтверждение</h3>
+      <p class="confirm-text">Вы уверены?</p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Отмена</button>
+        <button class="confirm-ok">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-screen="shelfScreen">
+      <span class="nav-item-icon">📚</span>
+      <span>Полка</span>
+    </button>
+    <button class="nav-item" data-screen="readerScreen">
+      <span class="nav-item-icon">👁</span>
+      <span>Чтение</span>
+    </button>
+    <button class="nav-item" data-screen="statsScreen">
+      <span class="nav-item-icon">📊</span>
+      <span>Статистика</span>
+    </button>
+    <button class="nav-item" data-screen="settingsScreen">
+      <span class="nav-item-icon">⚙️</span>
+      <span>Настройки</span>
+    </button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
