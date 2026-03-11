@@ -163,6 +163,15 @@
   color: var(--text-dim);
 }
 
+/* Time chart bars — different color */
+.chart-bar-time {
+  background: var(--success);
+}
+
+.chart-bar-time::after {
+  color: var(--success);
+}
+
 /* Book stats list */
 .book-stats-list {
   display: flex;

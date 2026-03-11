@@ -20,8 +20,9 @@ export function renderStats() {
   // Streak
   renderStreak(stats);
 
-  // Chart
+  // Charts
   renderChart(stats);
+  renderTimeChart(stats);
 
   // Book stats
   renderBookStats(books);
@@ -94,6 +95,45 @@ function renderChart(stats) {
     return `
       <div class="chart-bar-wrap">
         <div class="chart-bar" style="height:${h}%" data-value="${formatNumber(d.words)}"></div>
+      </div>
+    `;
+  }).join('');
+
+  labelsContainer.innerHTML = days.map(d => `<span class="chart-label">${d.date}</span>`).join('');
+}
+
+function formatTime(minutes) {
+  const m = Math.round(minutes);
+  if (m < 60) return m + ' мин';
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest > 0 ? `${h} ч ${rest} м` : `${h} ч`;
+}
+
+function renderTimeChart(stats) {
+  const today = new Date();
+  const days = [];
+
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const dayData = stats.daily[iso];
+    days.push({
+      date: d.getDate(),
+      minutes: dayData ? (dayData.minutes || 0) : 0,
+    });
+  }
+
+  const maxMin = Math.max(1, ...days.map(d => d.minutes));
+  const barsContainer = container.querySelector('.time-chart-bars');
+  const labelsContainer = container.querySelector('.time-chart-labels');
+
+  barsContainer.innerHTML = days.map(d => {
+    const h = Math.max(2, (d.minutes / maxMin) * 100);
+    return `
+      <div class="chart-bar-wrap">
+        <div class="chart-bar chart-bar-time" style="height:${h}%" data-value="${formatTime(d.minutes)}"></div>
       </div>
     `;
   }).join('');

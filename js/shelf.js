@@ -60,6 +60,7 @@ export function initShelf(containerEl) {
 
 export function renderShelf() {
   const books = getBooks();
+  const settings = getSettings();
   const bookList = Object.entries(books).sort((a, b) => (b[1].updatedAt || b[1].addedAt) - (a[1].updatedAt || a[1].addedAt));
 
   // Shelf stats
@@ -96,6 +97,13 @@ export function renderShelf() {
       chipLabel = pct + '%';
     }
 
+    const remaining = book.total - (book.index || 0);
+    const wpm = book.wpm || settings.defaultWpm;
+    const totalMinutes = Math.ceil(remaining / wpm);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const timeStr = hours > 0 ? `~${hours} ч ${mins} мин` : `~${totalMinutes} мин`;
+
     return `
       <div class="book-card" data-book-id="${id}">
         <div class="book-cover" style="background:hsla(${book.hue},70%,50%,0.15)">📄</div>
@@ -103,6 +111,7 @@ export function renderShelf() {
           <div class="book-title">${escapeHTML(book.title)}</div>
           <div class="book-meta">
             <span>${formatNumber(book.total)} слов</span>
+            <span class="book-time">${timeStr}</span>
             <span class="chip ${chipClass}">${chipLabel}</span>
           </div>
           <div class="book-progress">

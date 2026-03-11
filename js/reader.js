@@ -8,10 +8,19 @@ let bookTitle = '';
 let index = 0;
 let total = 0;
 let wpm = 300;
+let targetWpm = 300;
 let playing = false;
 let timer = null;
 let sessionStart = 0;
 let sessionWordsStart = 0;
+
+// Warmup state
+let warmupActive = false;
+let warmupStartTime = 0;
+
+// Session timer state
+let sessionTimerInterval = null;
+let sessionTimerEnd = 0;
 
 // DOM refs
 let wordEl, orpGuideEl, pauseHintEl, contextLineEl;
@@ -19,6 +28,7 @@ let progressFill, progressInfo, progressMinutes;
 let playBtn, wpmDisplay, speedCurrent;
 let focusZone;
 let bottomNav;
+let sessionTimerDisplay;
 
 export function initReader(containerEl) {
   container = containerEl;
@@ -35,6 +45,7 @@ export function initReader(containerEl) {
   speedCurrent = container.querySelector('.speed-current');
   focusZone = container.querySelector('.focus-zone');
   bottomNav = document.querySelector('.bottom-nav');
+  sessionTimerDisplay = container.querySelector('.session-timer-display');
 
   // Focus zone tap → toggle play
   focusZone.addEventListener('click', () => {
@@ -56,8 +67,8 @@ export function initReader(containerEl) {
   });
 
   // Speed buttons
-  container.querySelector('.speed-down').addEventListener('click', () => changeSpeed(-50));
-  container.querySelector('.speed-up').addEventListener('click', () => changeSpeed(50));
+  container.querySelector('.speed-down').addEventListener('click', () => changeSpeed(-10));
+  container.querySelector('.speed-up').addEventListener('click', () => changeSpeed(10));
 
   // Navigation buttons
   container.querySelector('.jump-prev-sentence').addEventListener('click', () => jumpSentence(-1));
@@ -105,10 +116,7 @@ export function loadBook(id) {
   playing = false;
   updatePlayBtn();
 
-  const settings = getSettings();
-  wordEl.style.fontSize = settings.fontSize + 'px';
-  orpGuideEl.classList.toggle('hidden', !settings.showORP);
-  contextLineEl.classList.toggle('hidden', !settings.showContext);
+  applySettings();
 }
 
 export function play() {
@@ -119,6 +127,20 @@ export function play() {
   pauseHintEl.classList.remove('visible');
   updatePlayBtn();
   bottomNav?.classList.add('hidden');
+
+  // Warmup
+  const settings = getSettings();
+  if (settings.warmup) {
+    warmupActive = true;
+    warmupStartTime = Date.now();
+    targetWpm = wpm;
+    wpm = Math.max(50, settings.warmupStartWpm || 150);
+    updateWpmDisplay();
+  }
+
+  // Session timer
+  startSessionTimer();
+
   tick();
 }
 
@@ -129,6 +151,15 @@ export function pause() {
   pauseHintEl.classList.add('visible');
   updatePlayBtn();
   bottomNav?.classList.remove('hidden');
+  stopSessionTimer();
+
+  // End warmup, restore target WPM
+  if (warmupActive) {
+    wpm = targetWpm;
+    warmupActive = false;
+    updateWpmDisplay();
+  }
+
   recordSession();
 }
 
@@ -176,7 +207,12 @@ export function jumpSentence(direction) {
 }
 
 export function changeSpeed(delta) {
-  wpm = Math.max(50, Math.min(1500, wpm + delta));
+  if (warmupActive) {
+    // During warmup, adjust the target speed
+    targetWpm = Math.max(50, Math.min(1500, targetWpm + delta));
+  } else {
+    wpm = Math.max(50, Math.min(1500, wpm + delta));
+  }
   updateWpmDisplay();
   saveProgress();
   if (playing) {
@@ -204,6 +240,13 @@ export function isBookLoaded() {
   return words.length > 0;
 }
 
+export function applySettings() {
+  const settings = getSettings();
+  wordEl.style.fontSize = settings.fontSize + 'px';
+  orpGuideEl.classList.toggle('hidden', !settings.showGuide);
+  contextLineEl.classList.toggle('hidden', !settings.showContext);
+}
+
 // ── Internal ──
 
 function getORPIndex(word) {
@@ -214,8 +257,8 @@ function getORPIndex(word) {
 
 function getDelay(word, baseDelay) {
   const settings = getSettings();
-  if (settings.periodPause && /[.!?…]$/.test(word)) return baseDelay * 2.5;
-  if (settings.commaPause && /[,;:\u2014\u2013]$/.test(word)) return baseDelay * 1.5;
+  if (settings.periodPause && /[.!?…]$/.test(word)) return baseDelay * (settings.periodMultiplier || 2.5);
+  if (settings.commaPause && /[,;:\u2014\u2013]$/.test(word)) return baseDelay * (settings.commaMultiplier || 1.5);
   if (word.length > 8) return baseDelay * 1.2;
   return baseDelay;
 }
@@ -228,13 +271,38 @@ function tick() {
     return;
   }
 
+  // Warmup: gradually increase WPM
+  if (warmupActive) {
+    const settings = getSettings();
+    const elapsed = (Date.now() - warmupStartTime) / 1000;
+    const duration = (settings.warmupDuration || 30);
+    if (elapsed >= duration) {
+      wpm = targetWpm;
+      warmupActive = false;
+    } else {
+      const startWpm = settings.warmupStartWpm || 150;
+      wpm = Math.round(startWpm + (targetWpm - startWpm) * (elapsed / duration));
+    }
+    updateWpmDisplay();
+  }
+
   renderWord();
   updateProgressUI();
 
   const baseDelay = 60000 / wpm;
   const delay = getDelay(words[index], baseDelay);
+  const currentWord = words[index];
 
   index++;
+
+  // Auto-pause on sentence end
+  const settings = getSettings();
+  if (settings.autoPauseSentence && /[.!?…]$/.test(currentWord)) {
+    timer = setTimeout(() => {
+      pause();
+    }, delay);
+    return;
+  }
 
   timer = setTimeout(tick, delay);
 }
@@ -249,23 +317,24 @@ function renderWord() {
   const settings = getSettings();
 
   if (settings.showORP) {
+    // ORP mode: center the key letter using grid
+    wordEl.style.display = 'grid';
+    wordEl.style.gridTemplateColumns = '1fr auto 1fr';
+    wordEl.style.textAlign = '';
     const orpIdx = getORPIndex(word);
     const before = escapeHTML(word.slice(0, orpIdx));
     const orpChar = escapeHTML(word[orpIdx] || '');
     const after = escapeHTML(word.slice(orpIdx + 1));
-    wordEl.innerHTML = `${before}<span class="orp-char">${orpChar}</span>${after}`;
-
-    // Position word so ORP char aligns with center guide
-    const containerWidth = wordEl.parentElement.offsetWidth;
-    if (containerWidth > 0 && word.length > 0) {
-      const charWidth = 1 / word.length;
-      const orpCenter = (orpIdx + 0.5) / word.length;
-      const shiftPercent = 0.5 - orpCenter;
-      wordEl.style.transform = `translateX(${shiftPercent * 100}%)`;
-    }
+    wordEl.innerHTML =
+      `<span class="orp-before">${before}</span>` +
+      `<span class="orp-char">${orpChar}</span>` +
+      `<span class="orp-after">${after}</span>`;
   } else {
+    // Normal mode: simple centered text
+    wordEl.style.display = 'block';
+    wordEl.style.gridTemplateColumns = '';
+    wordEl.style.textAlign = 'center';
     wordEl.textContent = word;
-    wordEl.style.transform = 'translateX(0)';
   }
 
   // Context line
@@ -287,7 +356,11 @@ function updateProgressUI() {
   progressFill.style.width = pct + '%';
   progressInfo.textContent = `${formatNumber(index)} / ${formatNumber(total)}`;
   const remaining = total - index;
-  progressMinutes.textContent = `~${minutesLeft(remaining, wpm)} мин`;
+  const totalMin = minutesLeft(remaining, wpm);
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  const timeStr = hours > 0 ? `~${hours} ч ${mins} мин` : `~${totalMin} мин`;
+  progressMinutes.textContent = timeStr;
 }
 
 function updateWpmDisplay() {
@@ -306,7 +379,7 @@ function saveProgress() {
   const books = getBooks();
   if (books[bookId]) {
     books[bookId].index = index;
-    books[bookId].wpm = wpm;
+    books[bookId].wpm = warmupActive ? targetWpm : wpm;
     books[bookId].updatedAt = Date.now();
     saveBooks(books);
   }
@@ -342,5 +415,75 @@ function recordSession() {
     books[bookId].wpm = wpm;
     books[bookId].updatedAt = Date.now();
     saveBooks(books);
+  }
+}
+
+// ── Session timer ──
+
+function startSessionTimer() {
+  const settings = getSettings();
+  if (!settings.sessionTimer) {
+    if (sessionTimerDisplay) sessionTimerDisplay.style.display = 'none';
+    return;
+  }
+
+  const minutes = settings.sessionTimerMinutes || 15;
+  sessionTimerEnd = Date.now() + minutes * 60000;
+
+  if (sessionTimerDisplay) {
+    sessionTimerDisplay.style.display = '';
+    updateTimerDisplay();
+  }
+
+  sessionTimerInterval = setInterval(() => {
+    if (!playing) return;
+    const remaining = sessionTimerEnd - Date.now();
+    if (remaining <= 0) {
+      pause();
+      if (sessionTimerDisplay) sessionTimerDisplay.textContent = '00:00';
+      showTimerNotification();
+      return;
+    }
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function stopSessionTimer() {
+  if (sessionTimerInterval) {
+    clearInterval(sessionTimerInterval);
+    sessionTimerInterval = null;
+  }
+  if (sessionTimerDisplay) sessionTimerDisplay.style.display = 'none';
+}
+
+function updateTimerDisplay() {
+  if (!sessionTimerDisplay) return;
+  const remaining = Math.max(0, sessionTimerEnd - Date.now());
+  const min = Math.floor(remaining / 60000);
+  const sec = Math.floor((remaining % 60000) / 1000);
+  sessionTimerDisplay.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function showTimerNotification() {
+  const overlay = document.createElement('div');
+  overlay.className = 'timer-notification';
+  overlay.innerHTML = `
+    <div class="timer-notification-content">
+      <div class="timer-notification-icon">⏰</div>
+      <div class="timer-notification-title">Время вышло!</div>
+      <div class="timer-notification-text">Сессия чтения завершена</div>
+      <button class="timer-notification-btn">OK</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('.timer-notification-btn').addEventListener('click', () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 300);
+  });
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('SpeedRead', { body: 'Время сессии чтения вышло!' });
   }
 }

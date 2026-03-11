@@ -29,6 +29,13 @@ export function initSettings(containerEl) {
     saveSettings(s);
   });
 
+  // Show guide line toggle
+  bindToggle('guide-toggle', (active) => {
+    const s = getSettings();
+    s.showGuide = active;
+    saveSettings(s);
+  });
+
   // Comma pause toggle
   bindToggle('comma-toggle', (active) => {
     const s = getSettings();
@@ -51,9 +58,65 @@ export function initSettings(containerEl) {
   });
 
   // Default WPM stepper
-  bindStepper('wpm-stepper', 50, 1500, 50, (val) => {
+  bindStepper('wpm-stepper', 50, 1500, 10, (val) => {
     const s = getSettings();
     s.defaultWpm = val;
+    saveSettings(s);
+  });
+
+  // Comma multiplier stepper
+  bindStepperFloat('comma-mult-stepper', 1.0, 5.0, 0.5, (val) => {
+    const s = getSettings();
+    s.commaMultiplier = val;
+    saveSettings(s);
+  });
+
+  // Period multiplier stepper
+  bindStepperFloat('period-mult-stepper', 1.0, 5.0, 0.5, (val) => {
+    const s = getSettings();
+    s.periodMultiplier = val;
+    saveSettings(s);
+  });
+
+  // Auto-pause on sentence end toggle
+  bindToggle('autopause-toggle', (active) => {
+    const s = getSettings();
+    s.autoPauseSentence = active;
+    saveSettings(s);
+  });
+
+  // Warmup toggle
+  bindToggle('warmup-toggle', (active) => {
+    const s = getSettings();
+    s.warmup = active;
+    saveSettings(s);
+  });
+
+  // Warmup start WPM stepper
+  bindStepper('warmup-wpm-stepper', 50, 500, 10, (val) => {
+    const s = getSettings();
+    s.warmupStartWpm = val;
+    saveSettings(s);
+  });
+
+  // Warmup duration stepper
+  bindStepper('warmup-duration-stepper', 5, 120, 5, (val) => {
+    const s = getSettings();
+    s.warmupDuration = val;
+    saveSettings(s);
+  });
+
+  // Session timer toggle
+  bindToggle('timer-toggle', (active) => {
+    const s = getSettings();
+    s.sessionTimer = active;
+    saveSettings(s);
+  });
+
+  // Session timer minutes stepper
+  bindStepper('timer-minutes-stepper', 1, 120, 1, (val) => {
+    const s = getSettings();
+    s.sessionTimerMinutes = val;
     saveSettings(s);
   });
 
@@ -74,11 +137,20 @@ export function syncSettingsUI() {
   setToggle('theme-toggle', s.theme === 'dark');
   setToggle('context-toggle', s.showContext);
   setToggle('orp-toggle', s.showORP);
+  setToggle('guide-toggle', s.showGuide);
   setToggle('comma-toggle', s.commaPause);
   setToggle('period-toggle', s.periodPause);
+  setToggle('autopause-toggle', s.autoPauseSentence);
+  setToggle('warmup-toggle', s.warmup);
+  setToggle('timer-toggle', s.sessionTimer);
 
   setStepperValue('font-stepper', s.fontSize);
   setStepperValue('wpm-stepper', s.defaultWpm);
+  setStepperValue('comma-mult-stepper', s.commaMultiplier);
+  setStepperValue('period-mult-stepper', s.periodMultiplier);
+  setStepperValue('warmup-wpm-stepper', s.warmupStartWpm);
+  setStepperValue('warmup-duration-stepper', s.warmupDuration);
+  setStepperValue('timer-minutes-stepper', s.sessionTimerMinutes);
 }
 
 export function applyTheme(theme) {
@@ -130,10 +202,33 @@ function bindStepper(id, min, max, step, onChange) {
   });
 }
 
+function bindStepperFloat(id, min, max, step, onChange) {
+  const el = container.querySelector(`[data-stepper="${id}"]`);
+  if (!el) return;
+  const valueEl = el.querySelector('.stepper-value');
+  const minusBtn = el.querySelector('.stepper-minus');
+  const plusBtn = el.querySelector('.stepper-plus');
+
+  minusBtn.addEventListener('click', () => {
+    let val = Math.round((parseFloat(valueEl.textContent) - step) * 10) / 10;
+    val = Math.max(min, val);
+    valueEl.textContent = val.toFixed(1);
+    onChange(val);
+  });
+
+  plusBtn.addEventListener('click', () => {
+    let val = Math.round((parseFloat(valueEl.textContent) + step) * 10) / 10;
+    val = Math.min(max, val);
+    valueEl.textContent = val.toFixed(1);
+    onChange(val);
+  });
+}
+
 function setStepperValue(id, val) {
   const el = container.querySelector(`[data-stepper="${id}"]`);
   if (!el) return;
-  el.querySelector('.stepper-value').textContent = val;
+  const isFloat = typeof val === 'number' && val % 1 !== 0;
+  el.querySelector('.stepper-value').textContent = isFloat ? val.toFixed(1) : val;
 }
 
 function showConfirm(title, text, onOk) {

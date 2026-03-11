@@ -106,6 +106,13 @@
   margin-top: 4px;
   font-size: 12px;
   color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.book-time {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .book-progress {

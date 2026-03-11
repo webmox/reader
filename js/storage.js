@@ -79,9 +79,18 @@ export function getDefaultSettings() {
     fontSize: 48,
     showContext: true,
     showORP: true,
+    showGuide: true,
     defaultWpm: 300,
     commaPause: true,
     periodPause: true,
+    commaMultiplier: 1.5,
+    periodMultiplier: 2.5,
+    autoPauseSentence: false,
+    warmup: false,
+    warmupStartWpm: 150,
+    warmupDuration: 30,
+    sessionTimer: false,
+    sessionTimerMinutes: 15,
   };
 }
 

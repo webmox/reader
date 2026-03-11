@@ -57,11 +57,13 @@
       </div>
     </div>
 
-    <!-- Screen 2: Reader -->
+    <!-- Screen 2: Reader (RSVP) -->
     <div class="screen" id="readerScreen">
       <div class="reader-header">
         <button class="icon-btn back-btn">←</button>
         <span class="reader-title">SpeedRead</span>
+        <button class="mode-toggle-btn" title="Обычное чтение">📖</button>
+        <span class="session-timer-display" style="display:none">00:00</span>
         <span class="wpm-display">300 wpm</span>
       </div>
 
@@ -96,14 +98,42 @@
             <button class="icon-btn jump-next-sentence" title="Следующее предложение">⏭</button>
           </div>
           <div class="speed-controls">
-            <button class="speed-btn speed-down">−50</button>
+            <button class="speed-btn speed-down">−10</button>
             <span class="speed-current">300 wpm</span>
-            <button class="speed-btn speed-up">+50</button>
+            <button class="speed-btn speed-up">+10</button>
           </div>
           <div class="keyboard-hints">
             <span><kbd>Space</kbd> Play/Pause</span>
             <span><kbd>←</kbd><kbd>→</kbd> ±10 слов</span>
-            <span><kbd>↑</kbd><kbd>↓</kbd> ±50 WPM</span>
+            <span><kbd>↑</kbd><kbd>↓</kbd> ±10 WPM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screen 2b: Book Reader (normal) -->
+    <div class="screen" id="bookReaderScreen">
+      <div class="reader-header">
+        <button class="icon-btn book-back-btn">←</button>
+        <span class="book-reader-title">Книга</span>
+        <button class="mode-toggle-btn-rsvp" title="RSVP-чтение">⚡</button>
+      </div>
+
+      <div class="no-book-msg-br">
+        <span class="no-book-msg-icon">📖</span>
+        <span>Выбери книгу на полке</span>
+      </div>
+
+      <div class="book-reader-content" style="display:none;flex-direction:column;flex:1;min-height:0">
+        <div class="page-content"></div>
+        <div class="page-controls">
+          <div class="page-progress">
+            <div class="page-progress-fill" style="width:0%"></div>
+          </div>
+          <div class="page-nav">
+            <button class="icon-btn page-prev" title="Назад">←</button>
+            <span class="page-info">1 / 1</span>
+            <button class="icon-btn page-next" title="Вперёд">→</button>
           </div>
         </div>
       </div>
@@ -137,6 +167,11 @@
           <div class="chart-title">Слов за день (14 дней)</div>
           <div class="chart-bars"></div>
           <div class="chart-labels"></div>
+        </div>
+        <div class="history-chart time-chart">
+          <div class="chart-title">Время чтения (14 дней)</div>
+          <div class="chart-bars time-chart-bars"></div>
+          <div class="chart-labels time-chart-labels"></div>
         </div>
         <div class="section-label">По книгам</div>
         <div class="book-stats-list"></div>
@@ -178,6 +213,14 @@
           <div class="toggle active" data-toggle="orp-toggle">
             <div class="toggle-label">
               <span>ORP-маркер</span>
+              <span>Красная буква в слове</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+          <div class="toggle active" data-toggle="guide-toggle">
+            <div class="toggle-label">
+              <span>Линия-ориентир</span>
+              <span>Вертикальная линия по центру</span>
             </div>
             <div class="toggle-track"></div>
           </div>
@@ -200,16 +243,85 @@
           <div class="toggle active" data-toggle="comma-toggle">
             <div class="toggle-label">
               <span>Запятые</span>
-              <span>×1.5 для , ; : —</span>
+              <span>Пауза на , ; : —</span>
             </div>
             <div class="toggle-track"></div>
+          </div>
+          <div class="stepper" data-stepper="comma-mult-stepper">
+            <span class="stepper-label">Множитель запятых</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">1.5</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
           </div>
           <div class="toggle active" data-toggle="period-toggle">
             <div class="toggle-label">
               <span>Точки</span>
-              <span>×2.5 для . ! ? …</span>
+              <span>Пауза на . ! ? …</span>
             </div>
             <div class="toggle-track"></div>
+          </div>
+          <div class="stepper" data-stepper="period-mult-stepper">
+            <span class="stepper-label">Множитель точек</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">2.5</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
+          </div>
+          <div class="toggle" data-toggle="autopause-toggle">
+            <div class="toggle-label">
+              <span>Авто-пауза</span>
+              <span>Пауза на конце предложения</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+        </div>
+
+        <div class="section-label">Разогрев</div>
+        <div class="settings-section">
+          <div class="toggle" data-toggle="warmup-toggle">
+            <div class="toggle-label">
+              <span>Режим разогрева</span>
+              <span>Плавное ускорение до целевой скорости</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+          <div class="stepper" data-stepper="warmup-wpm-stepper">
+            <span class="stepper-label">Стартовый WPM</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">150</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
+          </div>
+          <div class="stepper" data-stepper="warmup-duration-stepper">
+            <span class="stepper-label">Время разгона (сек)</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">30</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Таймер сессии</div>
+        <div class="settings-section">
+          <div class="toggle" data-toggle="timer-toggle">
+            <div class="toggle-label">
+              <span>Таймер чтения</span>
+              <span>Автопауза после N минут</span>
+            </div>
+            <div class="toggle-track"></div>
+          </div>
+          <div class="stepper" data-stepper="timer-minutes-stepper">
+            <span class="stepper-label">Минут</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">15</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
           </div>
         </div>
 

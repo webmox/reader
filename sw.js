@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speedread-v1';
+const CACHE_NAME = 'speedread-v2';
 
 const ASSETS = [
   '/',
@@ -15,6 +15,7 @@ const ASSETS = [
   '/js/storage.js',
   '/js/parser.js',
   '/js/reader.js',
+  '/js/book-reader.js',
   '/js/shelf.js',
   '/js/stats.js',
   '/js/settings.js',
