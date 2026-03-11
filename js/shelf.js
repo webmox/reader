@@ -83,6 +83,7 @@ export async function renderShelf() {
         <div class="empty-shelf-text">Полка пуста</div>
       </div>
     `;
+    renderLibrary();
     return;
   }
 
