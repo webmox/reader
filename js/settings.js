@@ -57,6 +57,13 @@ export function initSettings(containerEl) {
     saveSettings(s);
   });
 
+  // Book reader font size stepper
+  bindStepper('reader-font-stepper', 12, 32, 2, (val) => {
+    const s = getSettings();
+    s.readerFontSize = val;
+    saveSettings(s);
+  });
+
   // Default WPM stepper
   bindStepper('wpm-stepper', 50, 1500, 10, (val) => {
     const s = getSettings();
@@ -145,6 +152,7 @@ export function syncSettingsUI() {
   setToggle('timer-toggle', s.sessionTimer);
 
   setStepperValue('font-stepper', s.fontSize);
+  setStepperValue('reader-font-stepper', s.readerFontSize);
   setStepperValue('wpm-stepper', s.defaultWpm);
   setStepperValue('comma-mult-stepper', s.commaMultiplier);
   setStepperValue('period-mult-stepper', s.periodMultiplier);

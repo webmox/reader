@@ -1,6 +1,6 @@
 import { initShelf, renderShelf } from './shelf.js';
 import { initReader, loadBook, pause, togglePlay, jumpWords, jumpSentence, changeSpeed, isBookLoaded, getCurrentState, applySettings } from './reader.js';
-import { initBookReader, loadBookForReading, isBookReaderLoaded, goPage } from './book-reader.js';
+import { initBookReader, loadBookForReading, isBookReaderLoaded, goPage, applyBookReaderSettings } from './book-reader.js';
 import { initStats, renderStats } from './stats.js';
 import { initSettings, syncSettingsUI, applyTheme } from './settings.js';
 import { getSettings } from './storage.js';
@@ -49,6 +49,7 @@ function navigate(screenId) {
   // Render target screen
   if (screenId === 'shelfScreen') renderShelf();
   if (screenId === 'readerScreen' && isBookLoaded()) applySettings();
+  if (screenId === 'bookReaderScreen' && isBookReaderLoaded()) applyBookReaderSettings();
   if (screenId === 'statsScreen') renderStats();
   if (screenId === 'settingsScreen') syncSettingsUI();
 }

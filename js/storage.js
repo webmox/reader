@@ -46,30 +46,9 @@ export async function fetchBookText(bookId) {
 
       if (ext === '.fb2' || ext === '.txt') {
         const buffer = await resp.arrayBuffer();
-        let text;
 
         if (ext === '.fb2') {
-          // Check XML encoding declaration in the first 200 bytes
-          const head = new TextDecoder('ascii').decode(buffer.slice(0, 200));
-          const encMatch = head.match(/encoding\s*=\s*["']([^"']+)["']/i);
-          const declared = encMatch ? encMatch[1].toLowerCase() : '';
-
-          if (declared && declared !== 'utf-8') {
-            // Use declared encoding (windows-1251, koi8-r, etc.)
-            try {
-              text = new TextDecoder(declared).decode(buffer);
-            } catch {
-              text = new TextDecoder('windows-1251').decode(buffer);
-            }
-          } else {
-            // Try UTF-8 with fatal flag, fallback to Windows-1251
-            try {
-              text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
-            } catch {
-              text = new TextDecoder('windows-1251').decode(buffer);
-            }
-          }
-
+          const text = decodeFb2Buffer(buffer);
           const doc = new DOMParser().parseFromString(text, 'text/xml');
           const body = doc.querySelector('body');
           if (!body) return null;
@@ -84,11 +63,10 @@ export async function fetchBookText(bookId) {
 
         // Plain text
         try {
-          text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+          return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
         } catch {
-          text = new TextDecoder('windows-1251').decode(buffer);
+          return new TextDecoder('windows-1251').decode(buffer);
         }
-        return text;
       }
 
       if (ext === '.epub') {
@@ -108,6 +86,88 @@ export async function fetchBookText(bookId) {
 
   // Uploaded book — from localStorage
   return getBookText(bookId);
+}
+
+/** Decode FB2 buffer respecting XML encoding declaration */
+function decodeFb2Buffer(buffer) {
+  const head = new TextDecoder('ascii').decode(buffer.slice(0, 200));
+  const encMatch = head.match(/encoding\s*=\s*["']([^"']+)["']/i);
+  const declared = encMatch ? encMatch[1].toLowerCase() : '';
+
+  if (declared && declared !== 'utf-8') {
+    try {
+      return new TextDecoder(declared).decode(buffer);
+    } catch {
+      return new TextDecoder('windows-1251').decode(buffer);
+    }
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder('windows-1251').decode(buffer);
+  }
+}
+
+/** Fetch chapter list (title + word index) for FB2 books */
+export async function fetchBookChapters(bookId) {
+  const books = getBooks();
+  const book = books[bookId];
+  if (!book) return [];
+
+  if (book.source === 'library' && book.file) {
+    const ext = book.file.slice(book.file.lastIndexOf('.')).toLowerCase();
+    if (ext !== '.fb2') return [];
+
+    try {
+      const resp = await fetch('books/' + book.file);
+      if (!resp.ok) return [];
+      const buffer = await resp.arrayBuffer();
+      const text = decodeFb2Buffer(buffer);
+      const doc = new DOMParser().parseFromString(text, 'text/xml');
+      const body = doc.querySelector('body');
+      if (!body) return [];
+
+      const chapters = [];
+      let wordIndex = 0;
+
+      // Walk through all child nodes of body in order
+      function walkNodes(parent) {
+        for (const node of parent.children) {
+          if (node.tagName === 'section') {
+            // Look for title inside this section
+            for (const child of node.children) {
+              if (child.tagName === 'title') {
+                const titleText = child.textContent.trim();
+                if (titleText) {
+                  chapters.push({ title: titleText, wordIndex });
+                }
+                // Title paragraphs also count as words
+                child.querySelectorAll('p').forEach(p => {
+                  const t = p.textContent.trim();
+                  if (t) wordIndex += t.split(/\s+/).filter(w => w.length > 0).length;
+                });
+                break;
+              }
+            }
+            // Recurse into section children (skips title since it's already handled)
+            walkNodes(node);
+          } else if (node.tagName === 'p') {
+            const t = node.textContent.trim();
+            if (t) {
+              wordIndex += t.split(/\s+/).filter(w => w.length > 0).length;
+            }
+          }
+        }
+      }
+
+      walkNodes(body);
+      return chapters;
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 export function saveBookText(bookId, text) {
@@ -171,6 +231,7 @@ export function getDefaultSettings() {
     warmupDuration: 30,
     sessionTimer: false,
     sessionTimerMinutes: 15,
+    readerFontSize: 18,
   };
 }
 

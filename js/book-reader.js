@@ -1,4 +1,4 @@
-import { getBooks, saveBooks, fetchBookText, getSettings } from './storage.js';
+import { getBooks, saveBooks, fetchBookText, fetchBookChapters, getSettings } from './storage.js';
 import { formatNumber, escapeHTML } from './utils.js';
 
 let container = null;
@@ -11,6 +11,10 @@ let total = 0;
 let pages = [];
 let currentPage = 0;
 let wordsPerPage = 200; // will be recalculated
+
+// Chapters / TOC
+let chapters = [];
+let tocOverlay = null;
 
 // DOM refs
 let pageContent, pageInfo, pageProgress, pageProgressFill;
@@ -55,6 +59,17 @@ export function initBookReader(containerEl) {
     window.navigate?.('shelfScreen');
   });
 
+  // TOC button
+  tocOverlay = container.querySelector('.toc-overlay');
+  container.querySelector('.toc-btn')?.addEventListener('click', () => {
+    if (chapters.length === 0) return;
+    renderToc();
+    tocOverlay.classList.add('visible');
+  });
+  tocOverlay?.querySelector('.toc-close')?.addEventListener('click', () => {
+    tocOverlay.classList.remove('visible');
+  });
+
   // Progress bar seek
   pageProgress.addEventListener('click', (e) => {
     const rect = pageProgress.getBoundingClientRect();
@@ -86,12 +101,18 @@ export async function loadBookForReading(id) {
   container.querySelector('.no-book-msg-br').style.display = 'none';
   container.querySelector('.book-reader-content').style.display = 'flex';
 
+  applyBookReaderSettings();
   paginate();
 
   // Restore position from word index
   const savedIndex = book.index || 0;
   currentPage = findPageByWordIndex(savedIndex);
   renderPage();
+
+  // Load chapters for TOC
+  chapters = await fetchBookChapters(id);
+  const tocBtn = container.querySelector('.toc-btn');
+  if (tocBtn) tocBtn.style.display = chapters.length > 0 ? '' : 'none';
 }
 
 export function isBookReaderLoaded() {
@@ -109,9 +130,7 @@ export function goPage(delta) {
 
 export function applyBookReaderSettings() {
   const settings = getSettings();
-  pageContent.style.fontSize = settings.readerFontSize
-    ? settings.readerFontSize + 'px'
-    : '18px';
+  pageContent.style.fontSize = (settings.readerFontSize || 18) + 'px';
   // Re-paginate on font change
   if (words.length > 0) {
     const savedWordIdx = pages[currentPage]?.start || 0;
@@ -119,6 +138,34 @@ export function applyBookReaderSettings() {
     currentPage = findPageByWordIndex(savedWordIdx);
     renderPage();
   }
+}
+
+function renderToc() {
+  const list = tocOverlay.querySelector('.toc-list');
+  if (!list) return;
+
+  list.innerHTML = chapters.map((ch, i) => {
+    const page = findPageByWordIndex(ch.wordIndex);
+    const isActive = currentPage >= page &&
+      (i === chapters.length - 1 || currentPage < findPageByWordIndex(chapters[i + 1].wordIndex));
+    return `
+      <div class="toc-item${isActive ? ' toc-active' : ''}" data-word-index="${ch.wordIndex}">
+        <span class="toc-item-title">${escapeHTML(ch.title)}</span>
+        <span class="toc-item-page">${page + 1}</span>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.toc-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const wordIdx = parseInt(item.dataset.wordIndex);
+      currentPage = findPageByWordIndex(wordIdx);
+      renderPage();
+      savePosition();
+      pageContent.scrollTop = 0;
+      tocOverlay.classList.remove('visible');
+    });
+  });
 }
 
 // ── Internal ──

@@ -118,7 +118,19 @@
       <div class="reader-header">
         <button class="icon-btn book-back-btn">←</button>
         <span class="book-reader-title">Книга</span>
+        <button class="icon-btn toc-btn" title="Оглавление" style="display:none">☰</button>
         <button class="mode-toggle-btn-rsvp" title="RSVP-чтение">⚡</button>
+      </div>
+
+      <!-- TOC overlay -->
+      <div class="toc-overlay">
+        <div class="toc-panel">
+          <div class="toc-header">
+            <h3>Оглавление</h3>
+            <button class="icon-btn toc-close">✕</button>
+          </div>
+          <div class="toc-list"></div>
+        </div>
       </div>
 
       <div class="no-book-msg-br">
@@ -196,10 +208,10 @@
           </div>
         </div>
 
-        <div class="section-label">Отображение</div>
+        <div class="section-label">Отображение (RSVP)</div>
         <div class="settings-section">
           <div class="stepper" data-stepper="font-stepper">
-            <span class="stepper-label">Размер шрифта</span>
+            <span class="stepper-label">Размер шрифта RSVP</span>
             <div class="stepper-controls">
               <button class="stepper-btn stepper-minus">−</button>
               <span class="stepper-value">48</span>
@@ -225,6 +237,18 @@
               <span>Вертикальная линия по центру</span>
             </div>
             <div class="toggle-track"></div>
+          </div>
+        </div>
+
+        <div class="section-label">Режим чтения</div>
+        <div class="settings-section">
+          <div class="stepper" data-stepper="reader-font-stepper">
+            <span class="stepper-label">Размер шрифта</span>
+            <div class="stepper-controls">
+              <button class="stepper-btn stepper-minus">−</button>
+              <span class="stepper-value">18</span>
+              <button class="stepper-btn stepper-plus">+</button>
+            </div>
           </div>
         </div>
 
