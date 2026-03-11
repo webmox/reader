@@ -1,4 +1,4 @@
-import { getBooks, saveBooks, getBookText, getSettings } from './storage.js';
+import { getBooks, saveBooks, fetchBookText, getSettings } from './storage.js';
 import { formatNumber, escapeHTML } from './utils.js';
 
 let container = null;
@@ -66,12 +66,12 @@ export function initBookReader(containerEl) {
   });
 }
 
-export function loadBookForReading(id) {
+export async function loadBookForReading(id) {
   const books = getBooks();
   const book = books[id];
   if (!book) return;
 
-  const text = getBookText(id);
+  const text = await fetchBookText(id);
   if (!text) {
     alert('Текст книги не найден. Загрузите заново.');
     return;

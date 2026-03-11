@@ -188,6 +188,54 @@
   z-index: 10;
 }
 
+/* Built-in library */
+.library-label {
+  margin-top: 20px;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.library-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.library-card:hover {
+  background: var(--bg-tertiary);
+}
+
+.library-add-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.library-add-btn:hover {
+  background: var(--accent-mid);
+}
+
 @media (max-width: 380px) {
   .shelf-stats {
     padding: 8px 14px 12px;

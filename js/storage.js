@@ -30,6 +30,86 @@ export function getBookText(bookId) {
   }
 }
 
+/** Fetch book text: from server for library books, from localStorage for uploaded */
+export async function fetchBookText(bookId) {
+  const books = getBooks();
+  const book = books[bookId];
+  if (!book) return null;
+
+  // Library book — fetch from server
+  if (book.source === 'library' && book.file) {
+    try {
+      const resp = await fetch('books/' + book.file);
+      if (!resp.ok) return null;
+
+      const ext = book.file.slice(book.file.lastIndexOf('.')).toLowerCase();
+
+      if (ext === '.fb2' || ext === '.txt') {
+        const buffer = await resp.arrayBuffer();
+        let text;
+
+        if (ext === '.fb2') {
+          // Check XML encoding declaration in the first 200 bytes
+          const head = new TextDecoder('ascii').decode(buffer.slice(0, 200));
+          const encMatch = head.match(/encoding\s*=\s*["']([^"']+)["']/i);
+          const declared = encMatch ? encMatch[1].toLowerCase() : '';
+
+          if (declared && declared !== 'utf-8') {
+            // Use declared encoding (windows-1251, koi8-r, etc.)
+            try {
+              text = new TextDecoder(declared).decode(buffer);
+            } catch {
+              text = new TextDecoder('windows-1251').decode(buffer);
+            }
+          } else {
+            // Try UTF-8 with fatal flag, fallback to Windows-1251
+            try {
+              text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+            } catch {
+              text = new TextDecoder('windows-1251').decode(buffer);
+            }
+          }
+
+          const doc = new DOMParser().parseFromString(text, 'text/xml');
+          const body = doc.querySelector('body');
+          if (!body) return null;
+          const paragraphs = body.querySelectorAll('p');
+          const parts = [];
+          paragraphs.forEach(p => {
+            const t = p.textContent.trim();
+            if (t) parts.push(t);
+          });
+          return parts.join(' ');
+        }
+
+        // Plain text
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        } catch {
+          text = new TextDecoder('windows-1251').decode(buffer);
+        }
+        return text;
+      }
+
+      if (ext === '.epub') {
+        const blob = await resp.blob();
+        const { parseFile } = await import('./parser.js');
+        const file = new File([blob], book.file);
+        const result = await parseFile(file);
+        return result.words.join(' ');
+      }
+
+      // Other formats
+      return await resp.text();
+    } catch {
+      return null;
+    }
+  }
+
+  // Uploaded book — from localStorage
+  return getBookText(bookId);
+}
+
 export function saveBookText(bookId, text) {
   try {
     localStorage.setItem('sr_t_' + bookId, text);

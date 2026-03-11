@@ -6,6 +6,8 @@ let container = null;
 let shelfList = null;
 let fileInput = null;
 let loadingOverlay = null;
+let catalogLoaded = false;
+let catalogBooks = [];
 
 // Confirm dialog
 let confirmOverlay = null;
@@ -58,7 +60,8 @@ export function initShelf(containerEl) {
   });
 }
 
-export function renderShelf() {
+export async function renderShelf() {
+  await loadCatalog();
   const books = getBooks();
   const settings = getSettings();
   const bookList = Object.entries(books).sort((a, b) => (b[1].updatedAt || b[1].addedAt) - (a[1].updatedAt || a[1].addedAt));
@@ -144,6 +147,9 @@ export function renderShelf() {
       });
     });
   });
+
+  // Render built-in library
+  renderLibrary();
 }
 
 async function loadFiles(files) {
@@ -178,6 +184,120 @@ async function loadFiles(files) {
   }
 
   saveBooks(books);
+  loadingOverlay.classList.remove('visible');
+  renderShelf();
+}
+
+// ── Built-in library ──
+
+async function loadCatalog() {
+  if (catalogLoaded) return;
+  catalogLoaded = true;
+  try {
+    const resp = await fetch('books/catalog.json');
+    if (!resp.ok) return;
+    catalogBooks = await resp.json();
+  } catch {
+    catalogBooks = [];
+  }
+}
+
+function renderLibrary() {
+  const libraryEl = container.querySelector('.library-list');
+  if (!libraryEl) return;
+
+  if (catalogBooks.length === 0) {
+    libraryEl.innerHTML = '';
+    const label = container.querySelector('.library-label');
+    if (label) label.style.display = 'none';
+    return;
+  }
+
+  const books = getBooks();
+  // Filter out books already on the shelf
+  const available = catalogBooks.filter(cb => {
+    const id = 'b_' + simpleHash(cb.title + '_lib');
+    return !books[id];
+  });
+
+  const label = container.querySelector('.library-label');
+  if (available.length === 0) {
+    libraryEl.innerHTML = '';
+    if (label) label.style.display = 'none';
+    return;
+  }
+
+  if (label) label.style.display = '';
+
+  libraryEl.innerHTML = available.map(cb => {
+    const hue = hashToHue(cb.title);
+    return `
+      <div class="library-card" data-lib-file="${escapeHTML(cb.file)}">
+        <div class="book-cover" style="background:hsla(${hue},70%,50%,0.15)">📚</div>
+        <div class="book-info">
+          <div class="book-title">${escapeHTML(cb.title)}</div>
+          <div class="book-meta">
+            <span class="chip chip-warning">Встроенная</span>
+          </div>
+        </div>
+        <button class="library-add-btn" data-lib-file="${escapeHTML(cb.file)}" title="Добавить">+</button>
+      </div>
+    `;
+  }).join('');
+
+  // Add click handlers
+  libraryEl.querySelectorAll('.library-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const file = card.dataset.libFile;
+      await addLibraryBook(file);
+    });
+  });
+}
+
+async function addLibraryBook(filename) {
+  const catalogEntry = catalogBooks.find(cb => cb.file === filename);
+  if (!catalogEntry) return;
+
+  loadingOverlay.classList.add('visible');
+
+  try {
+    // Fetch to count words (needed for shelf stats)
+    const { fetchBookText } = await import('./storage.js');
+    const title = catalogEntry.title;
+    const id = 'b_' + simpleHash(title + '_lib');
+    const books = getBooks();
+    const settings = getSettings();
+
+    if (!books[id]) {
+      // Temporarily create entry to allow fetchBookText to work
+      books[id] = {
+        title,
+        total: 0,
+        index: 0,
+        wpm: settings.defaultWpm,
+        addedAt: Date.now(),
+        updatedAt: Date.now(),
+        wordsRead: 0,
+        sessions: 0,
+        hue: hashToHue(title),
+        source: 'library',
+        file: filename,
+      };
+      saveBooks(books);
+
+      // Fetch text to count words
+      const text = await fetchBookText(id);
+      if (!text) throw new Error('Файл не найден');
+      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount === 0) throw new Error('Файл пустой');
+
+      books[id].total = wordCount;
+      saveBooks(books);
+    }
+  } catch (err) {
+    alert('Ошибка: ' + err.message);
+  }
+
   loadingOverlay.classList.remove('visible');
   renderShelf();
 }
