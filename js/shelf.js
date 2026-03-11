@@ -196,9 +196,14 @@ async function loadCatalog() {
   catalogLoaded = true;
   try {
     const resp = await fetch('books/catalog.json');
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      console.warn('catalog.json fetch failed:', resp.status);
+      return;
+    }
     catalogBooks = await resp.json();
-  } catch {
+    console.log('Catalog loaded:', catalogBooks.length, 'books');
+  } catch (e) {
+    console.error('Failed to load catalog:', e);
     catalogBooks = [];
   }
 }
